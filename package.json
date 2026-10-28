@@ -1,6 +1,6 @@
 {
   "name": "@shadow-js/forms",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Forms with fine-grained values, schema validation, field arrays and server errors",
   "license": "MIT",
   "type": "module",
@@ -70,15 +70,15 @@
     "check": "npm run lint && npm run typecheck && npm run build && npm test && npm run test:perf && npm run test:gc"
   },
   "peerDependencies": {
-    "@shadow-js/core": "^1.0.0",
-    "@shadow-js/web": "^1.0.0"
+    "@shadow-js/core": "^1.0.1",
+    "@shadow-js/web": "^1.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@shadow-js/compiler": "^1.0.0",
-    "@shadow-js/core": "^1.0.0",
-    "@shadow-js/testing": "^1.0.0",
-    "@shadow-js/web": "^1.0.0",
+    "@shadow-js/compiler": "^1.0.1",
+    "@shadow-js/core": "^1.0.1",
+    "@shadow-js/testing": "^1.0.1",
+    "@shadow-js/web": "^1.0.1",
     "@types/node": "^24.0.0",
     "arktype": "2.2.8",
     "fast-check": "^4.10.2",

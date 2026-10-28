@@ -5,7 +5,7 @@ description: "Work with @shadow-js/forms. Forms with fine-grained values, schema
 
 # @shadow-js/forms
 
-Version 1.0.0. Forms with fine-grained values, schema validation, field arrays and server errors.
+Version 1.0.1. Forms with fine-grained values, schema validation, field arrays and server errors.
 
 ## Where to read more
 
@@ -23,8 +23,8 @@ npm install @shadow-js/forms @shadow-js/core @shadow-js/web
 
 | Package | Range | Required |
 | --- | --- | --- |
-| `@shadow-js/core` | `^1.0.0` | yes |
-| `@shadow-js/web` | `^1.0.0` | yes |
+| `@shadow-js/core` | `^1.0.1` | yes |
+| `@shadow-js/web` | `^1.0.1` | yes |
 
 ## Import paths
 
