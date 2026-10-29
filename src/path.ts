@@ -130,11 +130,14 @@ export function isReservedKey(key: string): boolean {
 
 /** Checks one key against the grammar and returns it. */
 function checkKey(key: string, where: string): string {
-  if (key.length === 0) throw new FormPathError(`empty key in ${where}`);
-  if (RESERVED.has(key)) throw new FormPathError(`"${key}" is a reserved key`);
+  if (key.length === 0) throw new FormPathError(__DEV__ ? `empty key in ${where}` : "FORMS_KEY_3");
+  if (RESERVED.has(key))
+    throw new FormPathError(__DEV__ ? `"${key}" is a reserved key` : "FORMS_KEY_4");
   // Code units below a space are control characters (the grammar refuses them).
   if ([...key].some((ch) => ch < " ")) {
-    throw new FormPathError(`control characters are not allowed in ${where}`);
+    throw new FormPathError(
+      __DEV__ ? `control characters are not allowed in ${where}` : "FORMS_KEY_2",
+    );
   }
   return key;
 }
@@ -170,10 +173,10 @@ export function parsePath(path: string): readonly Segment[];
 export function parsePath(path: string, allowAny: true): readonly PatternSegment[];
 export function parsePath(path: string, allowAny = false): readonly PatternSegment[] {
   if (typeof path !== "string" || path.length === 0) {
-    throw new FormPathError("a path must be a non-empty string");
+    throw new FormPathError(__DEV__ ? "a path must be a non-empty string" : "FORMS_PATH_1");
   }
   const bad = (problem: string): never => {
-    throw new FormPathError(`${problem} in "${path}"`);
+    throw new FormPathError(__DEV__ ? `${problem} in "${path}"` : "FORMS_PATH_7");
   };
   const out: PatternSegment[] = [];
   const n = path.length;
@@ -183,25 +186,25 @@ export function parsePath(path: string, allowAny = false): readonly PatternSegme
   while (i < n) {
     const ch = path.charAt(i);
     if (ch === "[") {
-      if (after === "dot") bad('expected a key after "."');
+      if (after === "dot") bad(__DEV__ ? 'expected a key after "."' : "");
       const close = path.indexOf("]", i);
-      if (close === -1) bad('unclosed "["');
+      if (close === -1) bad(__DEV__ ? 'unclosed "["' : "");
       const digits = path.slice(i + 1, close);
       if (digits === "" && allowAny) out.push(ANY);
       else if (isIndex(digits)) out.push(Number(digits));
-      else bad(`"[${digits}]" is not an array index`);
+      else bad(__DEV__ ? `"[${digits}]" is not an array index` : "");
       i = close + 1;
       after = "segment";
       continue;
     }
     if (ch === ".") {
-      if (after !== "segment") bad('unexpected "."');
+      if (after !== "segment") bad(__DEV__ ? 'unexpected "."' : "");
       after = "dot";
       i += 1;
       continue;
     }
-    if (ch === "]") bad('unexpected "]"');
-    if (after === "segment") bad('expected "." or "["');
+    if (ch === "]") bad(__DEV__ ? 'unexpected "]"' : "");
+    if (after === "segment") bad(__DEV__ ? 'expected "." or "["' : "");
     let end = i;
     while (end < n && !".[]".includes(path.charAt(end))) end += 1;
     const text = path.slice(i, end);
@@ -211,7 +214,7 @@ export function parsePath(path: string, allowAny = false): readonly PatternSegme
     i = end;
     after = "segment";
   }
-  if (after === "dot") bad('a path cannot end with "."');
+  if (after === "dot") bad(__DEV__ ? 'a path cannot end with "."' : "");
   return out;
 }
 
@@ -233,19 +236,22 @@ export function parsePath(path: string, allowAny = false): readonly PatternSegme
  * @since 1.0.0
  */
 export function formatPath(segments: readonly Segment[]): string {
-  if (segments.length === 0) throw new FormPathError("cannot format an empty path");
+  if (segments.length === 0)
+    throw new FormPathError(__DEV__ ? "cannot format an empty path" : "FORMS_PATH_1");
   let text = "";
   for (const [index, segment] of segments.entries()) {
     let part: string;
     if (typeof segment === "number") {
       if (!Number.isSafeInteger(segment) || segment < 0) {
-        throw new FormPathError(`${segment} is not an array index`);
+        throw new FormPathError(__DEV__ ? `${segment} is not an array index` : "FORMS_PATH_3");
       }
       part = String(segment);
     } else {
       checkKey(segment, "the path");
       if (/[.[\]]/.test(segment)) {
-        throw new FormPathError(`"${segment}" cannot be a key (no . [ or ])`);
+        throw new FormPathError(
+          __DEV__ ? `"${segment}" cannot be a key (no . [ or ])` : "FORMS_KEY_1",
+        );
       }
       // A digit-only key parses back as an index; both address the same slot of a container.
       part = segment;
@@ -317,9 +323,14 @@ function containerFor(next: Segment | undefined): object {
  * nothing. It mirrors the write loop, including the empty containers it would create.
  */
 function checkWritable(root: object, segments: readonly Segment[]): void {
-  if (segments.length === 0) throw new FormPathError("cannot write the root");
+  if (segments.length === 0)
+    throw new FormPathError(__DEV__ ? "cannot write the root" : "FORMS_PATH_5");
   for (const segment of segments) {
     if (typeof segment === "string") checkKey(segment, "the path");
+    // A negative, fractional or NaN index would become a junk key on the array.
+    else if (!Number.isSafeInteger(segment) || segment < 0) {
+      throw new FormPathError(__DEV__ ? `${segment} is not an array index` : "FORMS_PATH_3");
+    }
   }
   let current: object = root;
   let fresh = false;
@@ -327,12 +338,18 @@ function checkWritable(root: object, segments: readonly Segment[]): void {
     const holder = current;
     if (Array.isArray(holder)) {
       if (typeof segment !== "number") {
-        throw new FormPathError(`"${segment}" is not an array index in ${label(segments, depth)}`);
+        throw new FormPathError(
+          __DEV__
+            ? `"${segment}" is not an array index in ${label(segments, depth)}`
+            : "FORMS_PATH_4",
+        );
       }
       const length = fresh ? 0 : holder.length;
       if (segment - length > MAX_FILL) {
         throw new FormPathError(
-          `index ${segment} is more than ${MAX_FILL} past the end of ${label(segments, depth)}`,
+          __DEV__
+            ? `index ${segment} is more than ${MAX_FILL} past the end of ${label(segments, depth)}`
+            : "FORMS_PATH_2",
         );
       }
     }
@@ -410,7 +427,9 @@ function asRecord(
 
 /** The error for a step that goes through a scalar. */
 function notContainer(segments: readonly Segment[], depth: number): FormPathError {
-  return new FormPathError(`${label(segments, depth)} is not an object or array`);
+  return new FormPathError(
+    __DEV__ ? `${label(segments, depth)} is not an object or array` : "FORMS_PATH_6",
+  );
 }
 
 /** Assigns `value` at `key`, filling an array gap with `undefined` first. */
@@ -439,8 +458,11 @@ export function deleteIn(root: object, segments: readonly Segment[]): boolean {
   if (typeof parent !== "object" || parent === null) return false;
   const key = String(segments[segments.length - 1]);
   if (RESERVED.has(key) || !Object.hasOwn(parent, key)) return false;
-  if (Array.isArray(parent)) parent.splice(Number(key), 1);
-  else if (isRecord(parent)) delete parent[key];
+  if (Array.isArray(parent)) {
+    // `length` is an own property of an array but not an item.
+    if (!isIndex(key)) return false;
+    parent.splice(Number(key), 1);
+  } else if (isRecord(parent)) delete parent[key];
   return true;
 }
 

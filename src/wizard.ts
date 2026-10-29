@@ -224,13 +224,17 @@ export function useWizard<TInput extends object, TOutput = TInput>(
   options: WizardOptions<TInput>,
 ): WizardApi<TInput> {
   const steps = options.steps;
-  if (steps.length === 0) throw new RangeError("[forms] a wizard needs at least one step");
+  if (steps.length === 0)
+    throw new RangeError(__DEV__ ? "[forms] a wizard needs at least one step" : "FORMS_WIZARD_2");
   const last = steps.length - 1;
-  const clamp = (n: number): number => Math.min(Math.max(0, Math.trunc(n)), last);
+  // NaN would make the index NaN, and no step: it counts as the first one.
+  const clamp = (n: number): number =>
+    Math.min(Math.max(0, Number.isNaN(n) ? 0 : Math.trunc(n)), last);
   // Every index used here is clamped into the steps, so the error is a guard for the type only.
   const stepAt = (i: number): WizardStep<TInput> => {
     const step = steps[i];
-    if (step === undefined) throw new RangeError(`[forms] a wizard has no step ${i}`);
+    if (step === undefined)
+      throw new RangeError(__DEV__ ? `[forms] a wizard has no step ${i}` : "FORMS_WIZARD_1");
     return step;
   };
   const report = options.onStorageError ?? reportStorageFailure;

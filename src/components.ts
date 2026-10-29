@@ -82,7 +82,8 @@ export function useFormContext(): FormApi<object, unknown> {
     if (!(error instanceof Error)) throw error;
     found = undefined;
   }
-  if (found === undefined) throw new Error("[forms] this must be used inside a <Form>");
+  if (found === undefined)
+    throw new Error(__DEV__ ? "[forms] this must be used inside a <Form>" : "FORMS_NOFORM");
   return found;
 }
 

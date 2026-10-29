@@ -302,7 +302,11 @@ export function codecFor(
       // The date family (date, time, month, week, datetime-local) is the `dates` feature.
       if (dates === undefined) {
         throw new TypeError(
-          missingFeature("a date, time, month, week or datetime-local control", "dates", "dates"),
+          missingFeature(
+            __DEV__ ? "a date, time, month, week or datetime-local control" : "FORMS_NEED_3",
+            "dates",
+            "dates",
+          ),
         );
       }
       return dates.codec(options, emptyValue);

@@ -120,7 +120,8 @@ export function issuesToErrors(
 ): Record<string, Exclude<IssueInput, string>[]> {
   const out: Record<string, Exclude<IssueInput, string>[]> = {};
   for (const issue of issues) {
-    const list = out[issue.path] ?? [];
+    // Own members only: a field named like an `Object.prototype` member (`toString`) is a path too.
+    const list = (Object.hasOwn(out, issue.path) ? out[issue.path] : undefined) ?? [];
     list.push(
       issue.type === undefined
         ? { message: issue.message }

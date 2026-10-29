@@ -51,7 +51,8 @@ export function plainClone(value: unknown): unknown {
       ? Array.from({ length: source.length }, (_, index) => String(index))
       : Object.keys(source);
     for (const key of keys) {
-      if (isReservedKey(key)) throw new FormPathError(`"${key}" is a reserved key in data`);
+      if (isReservedKey(key))
+        throw new FormPathError(__DEV__ ? `"${key}" is a reserved key in data` : "FORMS_KEY_4");
       const child = ownValue(source, key);
       if (!isContainer(child)) {
         if (isRecord(target)) target[key] = child;

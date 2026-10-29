@@ -228,7 +228,9 @@ export function standardSchema<Input extends object, Output = Input>(
 ): Resolver<Input, Output> {
   if (!isStandardSchema(schema)) {
     throw new TypeError(
-      "[forms] standardSchema() needs a Standard Schema (an object with `~standard.validate`)",
+      __DEV__
+        ? "[forms] standardSchema() needs a Standard Schema (an object with `~standard.validate`)"
+        : "FORMS_NOT_2",
     );
   }
   const answer = (done: StandardSchemaV1Result<Output>): ResolverResult<Output> => {

@@ -38,7 +38,7 @@ import {
   setTouchedFlag,
   slotsOf,
 } from "./state";
-import { hasIssues, validate } from "./validate";
+import { validate, validateSettled } from "./validate";
 
 /**
  * The most prop bags a field keeps (one per kind and option set; radio groups need one per option).
@@ -168,6 +168,13 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       untrack(() => loc.segments()),
     );
   const segmentsNow = (): Segment[] => untrack(() => [...loc.segments()]);
+  // A row that was removed reports index -1. Its handles go inert: a read sees nothing and a write
+  // changes nothing, so a late answer (a server error, a blur) cannot bring its state back or write
+  // a junk key on the array.
+  const gone = (): boolean =>
+    loc.segments().some((segment) => typeof segment === "number" && segment < 0);
+  /** {@link gone} for the writers, which must not subscribe the code that calls them. */
+  const goneNow = (): boolean => untrack(gone);
 
   const states = new WeakMap<Element, Attached>();
   const mine = new Set<Binding>();
@@ -179,13 +186,29 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
     return undefined;
   };
   const children = new Map<string, FieldImpl>();
-  /** The forms that already listen for their native reset (one listener per form, not per control). */
-  const resettable = new WeakSet<HTMLFormElement>();
+  /** The forms that already listen for their native reset (one listener per form, not per control), with how to stop. */
+  const resettable = new Map<HTMLFormElement, () => void>();
   /**
    * A native reset empties every file control of its form. The browser clears the files after the
    * "reset" event, so the state of the field becomes undefined here, with the files still in place.
+   * A listener whose form was disposed, whose row is gone, or whose file controls all left the form stops here
+   * instead of writing into a field nobody shows.
    */
-  const onFormReset = (): void => {
+  const onFormReset = (event: Event): void => {
+    const form = event.currentTarget;
+    const live =
+      !core.disposed &&
+      !goneNow() &&
+      [...mine].some(
+        (binding) =>
+          binding.element.isConnected &&
+          binding.element instanceof HTMLInputElement &&
+          binding.element.form === form,
+      );
+    if (!live) {
+      if (form instanceof HTMLFormElement) resettable.get(form)?.();
+      return;
+    }
     batch(() => writeValue(core, segmentsNow(), undefined, {}));
   };
 
@@ -252,8 +275,14 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       // The kind was read when the ref ran, before the `type` attribute was applied: read the type now.
       const form =
         element instanceof HTMLInputElement && element.type === "file" ? element.form : null;
-      if (form !== null && !resettable.has(form)) {
-        resettable.add(form);
+      if (form !== null && !core.disposed && !resettable.has(form)) {
+        const off = (): void => {
+          form.removeEventListener("reset", onFormReset);
+          resettable.delete(form);
+          core.resetOff.delete(off);
+        };
+        resettable.set(form, off);
+        core.resetOff.add(off);
         form.addEventListener("reset", onFormReset);
       }
     });
@@ -271,6 +300,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
     const element = elementOf(event);
     if (element === undefined) return;
     const { codec } = stateOf(element);
+    if (goneNow()) return;
     batch(() => {
       writeValue(core, segmentsNow(), codec.read(element, peekValue()), {});
       syncAll();
@@ -279,6 +309,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
 
   const onBlur = (event?: Event): void => {
     const element = event === undefined ? undefined : elementOf(event);
+    if (goneNow()) return;
     batch(() => {
       const target = rec();
       setTouchedFlag(core, target, true);
@@ -289,6 +320,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
   };
 
   const onFocus = (): void => {
+    if (goneNow()) return;
     slotsOf(rec()).focused.set(true);
   };
 
@@ -320,6 +352,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       core.composing = Math.max(0, core.composing - 1);
       compositionEpoch.set(compositionEpoch.peek() + 1);
     }
+    if (goneNow()) return;
     batch(() => {
       writeValue(core, segmentsNow(), codec.read(element, peekValue()), {});
       flushComposition();
@@ -328,6 +361,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
 
   /** The controls bound to this field that are on the page now. */
   const livingElements = (): Element[] => {
+    if (gone()) return [];
     const target = rec();
     prune(target);
     const out: Element[] = [];
@@ -336,8 +370,9 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
     }
     return out;
   };
-  const isFieldDisabled = (): boolean => core.formDisabled() || slotsOf(rec()).disabled.get();
-  const errorsRead = (): readonly FieldIssue[] => slotsOf(rec()).shown.get();
+  const isFieldDisabled = (): boolean =>
+    core.formDisabled() || (!gone() && slotsOf(rec()).disabled.get());
+  const errorsRead = (): readonly FieldIssue[] => (gone() ? NO_ISSUES : slotsOf(rec()).shown.get());
   const idOf = (): string => `${core.id}-${loc.idPath()}`;
 
   /**
@@ -499,6 +534,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
     },
     invalid: () => errorsRead().length > 0,
     touched: () => {
+      if (gone()) return false;
       const target = rec();
       if (slotsOf(target).touched.get()) return true;
       if (!isContainer(getIn(core.values, loc.segments()))) return false;
@@ -508,15 +544,15 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       }
       return false;
     },
-    dirty: () => {
-      return isDirtyAgainstDefault(core, rec(), getIn(core.values, loc.segments()));
-    },
-    validating: () => slotsOf(rec()).validating.get(),
+    dirty: () => !gone() && isDirtyAgainstDefault(core, rec(), getIn(core.values, loc.segments())),
+    validating: () => !gone() && slotsOf(rec()).validating.get(),
     disabled: isFieldDisabled,
-    focused: () => slotsOf(rec()).focused.get(),
+    focused: () => !gone() && slotsOf(rec()).focused.get(),
     setValue(value: unknown, options?: SetValueOptions) {
+      if (goneNow()) return;
       batch(() => {
-        const next = isUpdater(value) ? value(plainClone(peekValue())) : value;
+        // The updater is the caller's code: it must not subscribe the effect that calls `setValue`.
+        const next = isUpdater(value) ? untrack(() => value(plainClone(peekValue()))) : value;
         writeValue(core, segmentsNow(), next, {
           validate: options?.validate,
           touch: options?.touch,
@@ -525,9 +561,11 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       });
     },
     setError(error: IssueInput | readonly IssueInput[] | undefined) {
+      if (goneNow()) return;
       batch(() => pushIssues(core, rec(), "manual", toIssues(error, "manual")));
     },
     clearError() {
+      if (goneNow()) return;
       batch(() => {
         const target = rec();
         pushIssues(core, target, "server", NO_ISSUES);
@@ -536,17 +574,19 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       });
     },
     setTouched(touched = true) {
+      if (goneNow()) return;
       setTouched(core, rec(), touched);
     },
     setDisabled(disabled: boolean) {
+      if (goneNow()) return;
       setDisabledFlag(core, rec(), disabled);
     },
     async trigger() {
-      const prefixes = [segmentsNow()];
-      await validate(core, { trigger: "manual", prefixes });
-      return !hasIssues(core, prefixes);
+      if (goneNow()) return true;
+      return validateSettled(core, [segmentsNow()]);
     },
     reset() {
+      if (goneNow()) return;
       resetPath(core, segmentsNow());
     },
     focus() {

@@ -20,7 +20,11 @@ export type FieldsOf<TInput extends object> = <P extends ArrayPath<TInput>>(
 export function fieldsOf<TInput extends object>(form: object): FieldsOf<TInput> {
   const fields: unknown = Reflect.get(form, "fields");
   if (typeof fields !== "function") {
-    throw new TypeError("[forms] fields() needs features: [fieldArrays] (@shadow-js/forms/arrays)");
+    throw new TypeError(
+      __DEV__
+        ? "[forms] fields() needs features: [fieldArrays] (@shadow-js/forms/arrays)"
+        : "FORMS_NEED_1",
+    );
   }
   // Justified cast: the arrays feature installs `fields` with this signature, and `TInput` is the
   // caller's type for the form; nothing at run time can check the type.

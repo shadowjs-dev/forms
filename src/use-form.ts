@@ -48,7 +48,7 @@ import {
   walk,
 } from "./internal/state";
 import { focusFirstProblem, runSubmit, shownIssues } from "./internal/submit";
-import { hasIssues, validate } from "./internal/validate";
+import { validate, validateSettled } from "./internal/validate";
 import { formatPath, getIn, parsePath, parsePattern, type Segment } from "./path";
 import type {
   AsyncDefaultValues,
@@ -169,7 +169,9 @@ function resolve<TInput extends object, TOutput>(options: FormOptions<TInput, TO
     "change";
   if (Reflect.has(options, "schema")) {
     throw new TypeError(
-      "[forms] `schema` is now `resolver: standardSchema(schema)` (@shadow-js/forms/standard-schema)",
+      __DEV__
+        ? "[forms] `schema` is now `resolver: standardSchema(schema)` (@shadow-js/forms/standard-schema)"
+        : "FORMS_SCHEMA",
     );
   }
   const patterns = Object.entries(options.validators ?? {}).map(([text, value]) => ({
@@ -321,7 +323,8 @@ export function useForm<
     composing: 0,
     deferred: undefined,
     handleValidators: new Set(),
-    schemaRun: { token: 0, controller: undefined, timer: undefined },
+    resetOff: new Set(),
+    schemaRun: { token: 0, controller: undefined, timer: undefined, window: undefined },
     output: undefined,
     excluded: [],
     excludedCount: new Cell(0),
@@ -359,8 +362,10 @@ export function useForm<
     if (fieldOptions?.validate !== undefined) {
       const spec = specOf(fieldOptions.validate);
       if ((spec.debounceMs ?? 0) > 0 && core.async === undefined) throw debounceError();
+      // By location text, not handle identity: an evicted handle is made again with a new location object.
+      const at = handle.loc.idPath();
       const exists = [...core.handleValidators].some(
-        (entry) => entry.spec.validate === spec.validate && entry.loc === handle.loc,
+        (entry) => entry.spec.validate === spec.validate && entry.loc.idPath() === at,
       );
       if (!exists) {
         const remove = handle.addValidator(spec);
@@ -407,6 +412,7 @@ export function useForm<
     }
     core.boundKeys.clear();
     core.handleValidators.clear();
+    for (const off of [...core.resetOff]) off();
   };
   if (owner !== null) onCleanup(dispose);
 
@@ -528,9 +534,7 @@ export function useForm<
     watch,
 
     async trigger(paths: string | readonly string[] | undefined) {
-      const prefixes = prefixesOf(paths);
-      await validate(core, { trigger: "manual", prefixes });
-      return !hasIssues(core, prefixes);
+      return validateSettled(core, prefixesOf(paths));
     },
     setError(path: string, error: IssueInput | readonly IssueInput[]) {
       const segments = textSegments(path);
@@ -663,7 +667,9 @@ export function useForm<
 
   // Problems the server sent with the page (a no-JavaScript post) are shown by the submitErrors feature.
   if (options.initialErrors !== undefined && core.submitErrors === undefined) {
-    throw new TypeError(missingFeature("initialErrors", "submitErrors", "submit-errors"));
+    throw new TypeError(
+      missingFeature(__DEV__ ? "initialErrors" : "FORMS_NEED_4", "submitErrors", "submit-errors"),
+    );
   }
   validate(core, { trigger: "init", prefixes: undefined });
   return form;
@@ -671,7 +677,9 @@ export function useForm<
 
 /** The error of a `debounceMs` without the asyncValidation feature. */
 function debounceError(): TypeError {
-  return new TypeError(missingFeature("debounceMs", "asyncValidation", "async"));
+  return new TypeError(
+    missingFeature(__DEV__ ? "debounceMs" : "FORMS_NEED_2", "asyncValidation", "async"),
+  );
 }
 
 /**

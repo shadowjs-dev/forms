@@ -830,7 +830,8 @@ export interface FormOptions<TInput extends object, TOutput = TInput> {
   /**
    * Quiet period before an asynchronous schema or form validator re-runs after a change, in
    * milliseconds. Default 0. A value above 0 needs the `asyncValidation` feature: without it,
-   * `useForm` throws a `TypeError` that names the feature.
+   * `useForm` throws a `TypeError` that names the feature. Changes inside one quiet period share one
+   * pass, which makes the problems of every path they changed visible, not only the last one's.
    */
   readonly debounceMs?: number | undefined;
   /**
@@ -2420,7 +2421,11 @@ export interface FormApi<TInput extends object, TOutput = TInput> {
   getFieldState(path: string): FieldStateView;
   /** Moves focus to a field and, with `shouldSelect`, selects the text of its inputs. Returns nothing: use {@link FormApi.focus} for the result. */
   setFocus(path: string, options?: { readonly shouldSelect?: boolean | undefined }): void;
-  /** Forgets a field: its problems, touched flag and bound controls go, and its value too unless `keepValue` (see {@link UnregisterOptions}). */
+  /**
+   * Forgets a field: its problems, touched flag and bound controls go, and its value too unless `keepValue` (see
+   * {@link UnregisterOptions}). An item of an array leaves the array, and with the `arrays` feature its row goes
+   * too: the rows after it keep their keys and state, as after `remove`.
+   */
   unregister(path: string, options?: UnregisterOptions): void;
   /** Restores one field to its default value and clears its state. */
   resetField(path: string): void;

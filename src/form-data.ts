@@ -68,6 +68,12 @@ function kindOfDefault(shape: unknown): "number" | "boolean" | "date" | "string"
   return "unknown";
 }
 
+/**
+ * The text of a decimal number a form control can post (no hex, binary or `Infinity`). The fraction is one optional
+ * group, so a long run of digits can only be split one way and a failed match is linear, not quadratic.
+ */
+const DECIMAL = /^\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?\s*$/i;
+
 function coerce(
   value: FormDataEntryValue | string,
   shape: unknown,
@@ -79,9 +85,9 @@ function coerce(
   }
   switch (kindOfDefault(shape)) {
     case "number": {
-      if (value.trim() === "") return undefined;
-      const parsed = Number(value);
-      return Number.isNaN(parsed) ? undefined : parsed;
+      // Decimal text only: `Number()` alone also reads "Infinity", "0x10" and "0b11".
+      const parsed = DECIMAL.test(value) ? Number(value) : Number.NaN;
+      return Number.isFinite(parsed) ? parsed : undefined;
     }
     case "boolean":
       return !["", "false", "off", "0"].includes(value.toLowerCase());
@@ -141,7 +147,8 @@ export function formDataToValues(
   let count = 0;
   for (const [name, value] of entriesOf(data)) {
     count += 1;
-    if (count > limit) throw new RangeError(`[forms] more than ${limit} form entries`);
+    if (count > limit)
+      throw new RangeError(__DEV__ ? `[forms] more than ${limit} form entries` : "FORMS_ENTRIES");
     let segments: Segment[];
     try {
       segments = [...parsePath(name)];
@@ -167,6 +174,10 @@ export function formDataToValues(
       value = coerce(group.values[0], shape, emptyValue);
     }
     try {
+      // A name that clashes with one already read (`a.b` then `a`) is skipped, never overwritten.
+      if (isContainer(getIn(result, group.segments))) {
+        throw new FormPathError(__DEV__ ? `"${name}" clashes with another name` : "FORMS_CLASH");
+      }
       setIn(result, group.segments, value);
     } catch (error) {
       if (!(error instanceof FormPathError)) throw error;
@@ -177,11 +188,25 @@ export function formDataToValues(
   return result;
 }
 
-/** Checkboxes post nothing when unchecked: booleans become `false`, lists of primitives become empty. */
+/** Checkboxes post nothing when unchecked: booleans become `false` (inside the rows that were posted), lists of primitives become empty. */
 function fillMissing(result: Record<string, unknown>, defaults: object): void {
   for (const segments of leafPaths(defaults)) {
     const shape = getIn(defaults, segments);
     if (typeof shape !== "boolean" || getIn(result, segments) !== undefined) continue;
+    // Defaults with more rows than the post: a row past the last posted one stays absent when it has a text or number
+    // field (which a present row always posts), so it is not made for one checkbox. A row of checkboxes only can post
+    // nothing at all, so it is filled from the defaults, like a row the post skipped over.
+    const rowAbsent = segments.some((segment, at) => {
+      if (at === segments.length - 1 || typeof segment !== "number") return false;
+      const posted = getIn(result, segments.slice(0, at));
+      if (segment < (Array.isArray(posted) ? posted.length : 0)) return false;
+      const row = getIn(defaults, segments.slice(0, at + 1));
+      return leafPaths(row).some((path) => {
+        const leaf = getIn(row, path);
+        return typeof leaf === "string" || typeof leaf === "number";
+      });
+    });
+    if (rowAbsent) continue;
     try {
       setIn(result, segments, false);
     } catch (error) {

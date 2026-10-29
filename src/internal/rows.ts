@@ -106,6 +106,8 @@ export interface ArrayPlug {
   readonly list: (key: string, length: number, parentRows: readonly string[]) => RowList;
   /** Drops the row lists at and below `prefix`, with the state of their rows. */
   readonly dropUnder: (prefix: string) => void;
+  /** Drops the row at `index` of the array at `key`, with its state, when the item left the data by a path (`unregister`). */
+  readonly removeRow: (key: string, index: number) => void;
   /** Forgets every row list (a reset that replaces the values). */
   readonly reset: () => void;
   /** Whether the rows of the array at `key` are not in their default order (or are new). */
@@ -236,6 +238,15 @@ export function createRowsPlug(core: Core): ArrayPlug {
   return {
     list: (key, length, parentRows) => listOf(core, key, length, parentRows),
     dropUnder: (prefix) => dropRowsUnder(core, prefix),
+    removeRow(key, index) {
+      const list = core.rows.get(key);
+      const id = list?.ids.splice(index, 1)[0];
+      if (list === undefined || id === undefined) return;
+      list.forget(id);
+      list.reindex(index);
+      removeRowState(core, [id]);
+      list.changed();
+    },
     reset() {
       const rowIds: string[] = [];
       for (const list of core.rows.values()) {

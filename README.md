@@ -529,6 +529,42 @@ with the row, not the index.
 
 - `test/` is the specification: every behavior above has a test with an invariant id (`[FRM-nn]`).
 
+## Production error codes
+
+A production build keeps a short code instead of the development explanation, so message text never reaches user bundles. Search this table for the code. In the explanation, `…` stands for a value the development message names. A code followed by a word names the option, feature or member at fault.
+
+| Code | Development explanation |
+| --- | --- |
+| `FORMS_CLASH` | "…" clashes with another name |
+| `FORMS_ENTRIES` | more than … form entries |
+| `FORMS_INDEX` | cannot … … in "…" (valid: 0 to …) |
+| `FORMS_KEY_1` | "…" cannot be a key (no . [ or ]) |
+| `FORMS_KEY_2` | control characters are not allowed in … |
+| `FORMS_KEY_3` | empty key in … |
+| `FORMS_KEY_4` | "…" is a reserved key in data / "…" is a reserved key |
+| `FORMS_NEED_1` | fields() needs features: [fieldArrays] (@shadow-js/forms/arrays) |
+| `FORMS_NEED_2` | `debounceMs` or an async check needs `features: [asyncValidation]` (`@shadow-js/forms/async`). |
+| `FORMS_NEED_3` | A date, time, month, week or datetime-local control needs `features: [dates]` (`@shadow-js/forms/dates`). |
+| `FORMS_NEED_4` | `initialErrors` needs `features: [submitErrors]` (`@shadow-js/forms/submit-errors`). |
+| `FORMS_NOFORM` | this must be used inside a <Form> |
+| `FORMS_NOT_1` | "…" is not an array |
+| `FORMS_NOT_2` | standardSchema() needs a Standard Schema (an object with `~standard.validate`) |
+| `FORMS_PATH_1` | a path must be a non-empty string / cannot format an empty path |
+| `FORMS_PATH_2` | index … is more than … past the end of … |
+| `FORMS_PATH_3` | … is not an array index |
+| `FORMS_PATH_4` | "…" is not an array index in … |
+| `FORMS_PATH_5` | cannot write the root |
+| `FORMS_PATH_6` | … is not an object or array |
+| `FORMS_PATH_7` | … in "…" |
+| `FORMS_ROW_1` | "…" has no row at … |
+| `FORMS_ROW_2` | "…" has no row "…" |
+| `FORMS_SCHEMA` | `schema` is now `resolver: standardSchema(schema)` (@shadow-js/forms/standard-schema) |
+| `FORMS_VALIDATOR` | a validator must return a message, an issue object, a list of them, or nothing |
+| `FORMS_WEEK` | a "week" input can only be stored as a string |
+| `FORMS_WIZARD_1` | a wizard has no step … |
+| `FORMS_WIZARD_2` | a wizard needs at least one step |
+| `FORMS_DISABLED` | The schema requires fields that are disabled and left out of the data (the code is followed by the fields). Make the field optional in the schema, enable it, or pass `excludeDisabled: false`. |
+
 ## Dependencies
 
 - Runtime: none.

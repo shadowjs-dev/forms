@@ -58,6 +58,7 @@ function createRow(
     value: () => getIn(core.values, loc.segments()),
     isNew: () => listOfArray()?.origin.has(id) !== true,
     dirty: () =>
+      indexNow() >= 0 &&
       isDirtyAgainstDefault(core, recOfLoc(core, loc), getIn(core.values, loc.segments())),
     field,
     remove: () => {
@@ -142,7 +143,9 @@ export function createArray(host: FieldHost, loc: Loc): ArrayImpl {
         return listPeek();
       });
       if (id === undefined || list?.index.has(id) !== true) {
-        throw new RangeError(`[forms] "${segmentsNow().join(".")}" has no row "${key}"`);
+        throw new RangeError(
+          __DEV__ ? `[forms] "${segmentsNow().join(".")}" has no row "${key}"` : "FORMS_ROW_2",
+        );
       }
       return rowOf(id);
     },
@@ -150,7 +153,9 @@ export function createArray(host: FieldHost, loc: Loc): ArrayImpl {
       const state = arrayState(core, segmentsNow());
       const id = state.list.ids[index];
       if (id === undefined) {
-        throw new RangeError(`[forms] "${state.segments.join(".")}" has no row at ${index}`);
+        throw new RangeError(
+          __DEV__ ? `[forms] "${state.segments.join(".")}" has no row at ${index}` : "FORMS_ROW_1",
+        );
       }
       return rowOf(id);
     },
@@ -164,7 +169,9 @@ export function createArray(host: FieldHost, loc: Loc): ArrayImpl {
     update(index, item) {
       const state = arrayState(core, segmentsNow());
       if (!Number.isInteger(index) || index < 0 || index >= state.length) {
-        throw new RangeError(`[forms] "${state.segments.join(".")}" has no row at ${index}`);
+        throw new RangeError(
+          __DEV__ ? `[forms] "${state.segments.join(".")}" has no row at ${index}` : "FORMS_ROW_1",
+        );
       }
       writeValue(core, [...state.segments, index], item, {});
     },
@@ -213,7 +220,9 @@ export function arrayState(core: Core, segments: readonly Segment[]): ArrayState
     });
     const current = getIn(core.raw(), segments);
     if (current !== undefined && current !== null && !Array.isArray(current)) {
-      throw new TypeError(`[forms] "${segments.join(".")}" is not an array`);
+      throw new TypeError(
+        __DEV__ ? `[forms] "${segments.join(".")}" is not an array` : "FORMS_NOT_1",
+      );
     }
     const length = Array.isArray(current) ? current.length : 0;
     const list = listOf(core, walked.key, length, walked.rows);
@@ -223,7 +232,9 @@ export function arrayState(core: Core, segments: readonly Segment[]): ArrayState
 
 function checkIndex(index: number, max: number, path: string, what: string): void {
   if (!Number.isInteger(index) || index < 0 || index > max) {
-    throw new RangeError(`[forms] cannot ${what} ${index} in "${path}" (valid: 0 to ${max})`);
+    throw new RangeError(
+      __DEV__ ? `[forms] cannot ${what} ${index} in "${path}" (valid: 0 to ${max})` : "FORMS_INDEX",
+    );
   }
 }
 
@@ -258,7 +269,9 @@ function editArray(
           array = getIn(draft, state.segments);
         }
         if (!Array.isArray(array)) {
-          throw new TypeError(`[forms] "${state.segments.join(".")}" is not an array`);
+          throw new TypeError(
+            __DEV__ ? `[forms] "${state.segments.join(".")}" is not an array` : "FORMS_NOT_1",
+          );
         }
         removed = edit(array, state.list);
       });
@@ -403,15 +416,11 @@ export function replaceRows(
   items: readonly unknown[],
 ): void {
   const state = arrayState(core, segments);
+  // Copied first: an item the form refuses must throw before the rows and their state are dropped.
+  const copies = items.map((item) => plainClone(item));
   batch(() => {
     dropRowsUnder(core, state.key);
-    core.write((draft) =>
-      setIn(
-        draft,
-        state.segments,
-        items.map((item) => plainClone(item)),
-      ),
-    );
+    core.write((draft) => setIn(draft, state.segments, copies));
     changedValues(core, true);
     clearPushed(core, state.key, ["server", "manual"]);
     afterWrite(core, [state.segments]);

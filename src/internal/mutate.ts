@@ -14,6 +14,7 @@ import {
   defaultOf,
   indexPathOf,
   isUnder,
+  keyOfSegments,
   NO_ISSUES,
   pruneBindings,
   type Rec,
@@ -385,6 +386,13 @@ export function unregisterPath(
     if (options.keepValue !== true) {
       const previous = peekAt(core, segments);
       if (isContainer(previous)) core.arrays?.dropUnder(key);
+      // An item of an array leaves it by splice, so its row goes too: the rows after it keep their ids and state.
+      const parent = segments.slice(0, -1);
+      const index = Number(segments[segments.length - 1]);
+      const list = peekAt(core, parent);
+      if (Array.isArray(list) && Number.isInteger(index) && index >= 0 && index < list.length) {
+        core.arrays?.removeRow(keyOfSegments(core, parent), index);
+      }
       core.write((draft) => {
         deleteIn(draft, segments);
       });

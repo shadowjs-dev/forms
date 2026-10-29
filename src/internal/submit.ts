@@ -15,13 +15,10 @@ import {
   setTouchedFlag,
   slotsOf,
 } from "./state";
-import { effectiveValues, validate } from "./validate";
+import { effectiveValues, MAX_CHECK_ROUNDS, validate } from "./validate";
 
 /** `Node.DOCUMENT_POSITION_FOLLOWING`, spelled out because `Node` does not exist on the server. */
 const DOCUMENT_POSITION_FOLLOWING = 4;
-
-/** How many times a submit runs its checks again because values changed while they waited. */
-const MAX_CHECK_ROUNDS = 8;
 
 /**
  * Moves focus to the first control (in document order) that shows a problem.
@@ -89,7 +86,9 @@ function touchAll(core: Core): void {
 function excludedError(excluded: readonly ExcludedIssue[]): Error {
   const names = excluded.map((entry) => `"${entry.path}" (${entry.message})`).join(", ");
   const error = new Error(
-    `The schema requires ${names}, but ${excluded.length === 1 ? "that field is" : "those fields are"} disabled and left out of the data. Make the field optional in the schema, enable it, or pass \`excludeDisabled: false\`.`,
+    __DEV__
+      ? `The schema requires ${names}, but ${excluded.length === 1 ? "that field is" : "those fields are"} disabled and left out of the data. Make the field optional in the schema, enable it, or pass \`excludeDisabled: false\`.`
+      : `FORMS_DISABLED ${names}`,
   );
   error.name = "DisabledFieldError";
   return error;

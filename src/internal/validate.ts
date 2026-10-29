@@ -90,7 +90,11 @@ interface Mapped {
  * The message of a check that answers with a promise when the async feature is absent.
  * @internal
  */
-export const NEEDS_ASYNC: string = missingFeature("async validation", "asyncValidation", "async");
+export const NEEDS_ASYNC: string = missingFeature(
+  __DEV__ ? "async validation" : "FORMS_NEED_2",
+  "asyncValidation",
+  "async",
+);
 
 /**
  * The values a pass validates and a submit sends: a plain copy with disabled fields left out
@@ -565,22 +569,52 @@ export function reveal(core: Core, req: Request, changed: ReadonlySet<string>): 
 export function validate(core: Core, req: Request): Promise<void> | undefined {
   if (core.disposed) return undefined;
   const pending: Promise<void>[] = [];
-  batch(() => {
-    const changed = new Set<string>();
-    const global = runGlobal(core, req, changed);
-    if (global !== undefined) pending.push(global);
-    // The first pass (creation, reset) only learns whether the resolver is satisfied: field
-    // validators may call a server, so they wait for an edit, a blur, a trigger or a submit.
-    if (req.trigger !== "init") {
-      for (const target of targetsFor(core, req).values()) {
-        const settle = runTarget(core, target, req, changed);
-        if (settle !== undefined) pending.push(settle);
+  // Untracked as a whole: the resolver and the validators are the caller's code, and a pass is a
+  // side effect of a write, so the effect or event that caused it must not subscribe to them.
+  untrack(() =>
+    batch(() => {
+      const changed = new Set<string>();
+      const global = runGlobal(core, req, changed);
+      if (global !== undefined) pending.push(global);
+      // The first pass (creation, reset) only learns whether the resolver is satisfied: field
+      // validators may call a server, so they wait for an edit, a blur, a trigger or a submit.
+      if (req.trigger !== "init") {
+        for (const target of targetsFor(core, req).values()) {
+          const settle = runTarget(core, target, req, changed);
+          if (settle !== undefined) pending.push(settle);
+        }
       }
-    }
-    reveal(core, req, changed);
-  });
+      reveal(core, req, changed);
+    }),
+  );
   if (pending.length === 0) return undefined;
   return Promise.all(pending).then(() => undefined);
+}
+
+/**
+ * How many times a check (a submit, `trigger()`) runs again because values changed while it waited.
+ * @internal
+ */
+export const MAX_CHECK_ROUNDS = 8;
+
+/**
+ * Validates the given paths (all when `undefined`) as `trigger()` does and says whether they are
+ * clean. A pass that an edit superseded while it waited answers for old values (its answer is
+ * dropped), so the check runs again on what is there now. Bounded by {@link MAX_CHECK_ROUNDS}, so
+ * a validator that keeps writing values cannot hold it forever.
+ * @internal
+ */
+export async function validateSettled(
+  core: Core,
+  prefixes: readonly (readonly Segment[])[] | undefined,
+): Promise<boolean> {
+  for (let round = 1; ; round += 1) {
+    const version = core.version.peek();
+    await validate(core, { trigger: "manual", prefixes });
+    if (core.version.peek() === version || round >= MAX_CHECK_ROUNDS) {
+      return !hasIssues(core, prefixes);
+    }
+  }
 }
 
 /**

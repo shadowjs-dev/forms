@@ -22,7 +22,9 @@ export function missingFeature(
   feature: "asyncValidation" | "submitErrors" | "dates",
   entry: string,
 ): string {
-  return `[forms] ${what} needs features: [${feature}] (@shadow-js/forms/${entry})`;
+  return __DEV__
+    ? `[forms] ${what} needs features: [${feature}] (@shadow-js/forms/${entry})`
+    : what;
 }
 
 /** True for a plain `{ message }` issue object. */
@@ -62,7 +64,9 @@ export function toIssues(input: unknown, type: string): FieldIssue[] {
     ];
   }
   throw new TypeError(
-    "[forms] a validator must return a message, an issue object, a list of them, or nothing",
+    __DEV__
+      ? "[forms] a validator must return a message, an issue object, a list of them, or nothing"
+      : "FORMS_VALIDATOR",
   );
 }
 

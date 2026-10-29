@@ -285,6 +285,8 @@ export interface Core {
 
   /** Validators attached by field handles. */
   readonly handleValidators: Set<HandleValidator>;
+  /** Removes the native `reset` listeners that file controls put on their forms (run when the form is disposed). */
+  readonly resetOff: Set<() => void>;
   /** The latest schema pass. */
   schemaRun: SchemaRun;
   /** Parsed output of the last clean validation. */
@@ -350,6 +352,8 @@ export interface SchemaRun {
   token: number;
   controller: AbortController | undefined;
   timer: ReturnType<typeof setTimeout> | undefined;
+  /** The paths of the changes waiting in the debounce window (`undefined` inside: every path), set while `timer` is. */
+  window: { readonly prefixes: readonly (readonly Segment[])[] | undefined } | undefined;
 }
 
 // ---------------------------------------------------------------------------------------------

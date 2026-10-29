@@ -129,7 +129,9 @@ export function dateCodec(options: DateOptions, emptyValue: EmptyValue): Codec {
   const type = options.type ?? "date";
   const as = options.as ?? "string";
   if (type === "week" && as !== "string") {
-    throw new TypeError('[forms] a "week" input can only be stored as a string');
+    throw new TypeError(
+      __DEV__ ? '[forms] a "week" input can only be stored as a string' : "FORMS_WEEK",
+    );
   }
   const empty = options.empty ?? emptyValue;
   const display = (value: unknown): string => {

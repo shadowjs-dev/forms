@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 import { batch } from "@shadow-js/core";
+import { type Segment, startsWith } from "../path";
 import type { FieldIssue } from "../types";
 import { type Core, issuesEqual, NO_ISSUES, type Rec, recomputeTruth, slotsOf } from "./state";
 import { applyGlobal, execute, type Pending, type Request, reveal } from "./validate";
@@ -43,6 +44,24 @@ export interface AsyncPlug {
   readonly stop: () => void;
 }
 
+/** The most paths a debounce window remembers before it stands for every path. */
+const MAX_WINDOW_PATHS = 256;
+
+/** The paths of a window plus those of one more change; `undefined` (every path) when either is, or past the bound. */
+function widen(
+  held: readonly (readonly Segment[])[] | undefined,
+  more: readonly (readonly Segment[])[] | undefined,
+): Segment[][] | undefined {
+  if (held === undefined || more === undefined) return undefined;
+  const out = held.map((path) => [...path]);
+  for (const path of more) {
+    if (!out.some((known) => known.length === path.length && startsWith(known, path))) {
+      out.push([...path]);
+    }
+  }
+  return out.length > MAX_WINDOW_PATHS ? undefined : out;
+}
+
 /** Sets the validating flag and keeps the counter in step. */
 function setValidatingFlag(core: Core, rec: Rec, validating: boolean): void {
   if (rec.slots === undefined && !validating) return;
@@ -64,6 +83,8 @@ function wantsLive(core: Core): boolean {
 export function createAsyncPlug(core: Core): AsyncPlug {
   const runGlobal = (req: Request, changed: Set<string>): Promise<void> | undefined => {
     const run = core.schemaRun;
+    const held = run.window;
+    run.window = undefined;
     if (run.timer !== undefined) {
       clearTimeout(run.timer);
       run.timer = undefined;
@@ -77,22 +98,29 @@ export function createAsyncPlug(core: Core): AsyncPlug {
         run.controller?.abort();
         run.token += 1;
         const token = run.token;
+        // Every change of the window keeps its paths: the pass that finally runs reveals them all, not only the last one's.
+        const wide: Request = {
+          ...req,
+          prefixes: held === undefined ? req.prefixes : widen(held.prefixes, req.prefixes),
+        };
+        run.window = { prefixes: wide.prefixes };
         return new Promise<void>((resolve) => {
           run.timer = setTimeout(() => {
             run.timer = undefined;
+            run.window = undefined;
             if (token !== run.token || core.disposed) {
               resolve();
               return;
             }
             const later = new Set<string>();
-            const pending = execute(core, req, later);
+            const pending = execute(core, wide, later);
             if (pending === undefined) {
-              batch(() => reveal(core, req, later));
+              batch(() => reveal(core, wide, later));
               resolve();
               return;
             }
             void pending.then(() => {
-              batch(() => reveal(core, req, later));
+              batch(() => reveal(core, wide, later));
               resolve();
             });
           }, delay);
@@ -189,6 +217,7 @@ export function createAsyncPlug(core: Core): AsyncPlug {
 
   const stop = (): void => {
     const run = core.schemaRun;
+    run.window = undefined;
     if (run.timer !== undefined) {
       clearTimeout(run.timer);
       run.timer = undefined;
