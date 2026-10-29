@@ -18,7 +18,7 @@ export function staticLoc(core: Core, segments: readonly Segment[]): Loc {
   const idPath = frozen.length === 0 ? "" : formatPath(frozen);
   return {
     segments: () => frozen,
-    resolve: () => walk(core, frozen, { key: "", node: core.raw(), parts: [], rows: [], from: 0 }),
+    resolve: () => walk(core, frozen),
     idPath: () => idPath,
     child: (sub) => staticLoc(core, [...frozen, ...sub]),
   };
@@ -51,7 +51,6 @@ export function rowLoc(
       node: rowValue,
       parts: [...arrayWalked.parts, { array: arrayWalked.key, id }],
       rows: [...arrayWalked.rows, id],
-      from: 0,
     });
   };
   return {

@@ -211,13 +211,7 @@ export interface ArrayState {
  */
 export function arrayState(core: Core, segments: readonly Segment[]): ArrayState {
   return untrack(() => {
-    const walked = walk(core, segments, {
-      key: "",
-      node: core.raw(),
-      parts: [],
-      rows: [],
-      from: 0,
-    });
+    const walked = walk(core, segments);
     const current = getIn(core.raw(), segments);
     if (current !== undefined && current !== null && !Array.isArray(current)) {
       throw new TypeError(

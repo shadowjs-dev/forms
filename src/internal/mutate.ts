@@ -258,7 +258,7 @@ export function setDisabledFlag(core: Core, rec: Rec, disabled: boolean): void {
     if (slotsOf(rec).disabled.set(disabled)) {
       if (disabled) core.disabledKeys.add(rec.key);
       else core.disabledKeys.delete(rec.key);
-      validate(core, { trigger: "init", prefixes: undefined });
+      validate(core, { trigger: "init" });
       bumpMeta(core);
     }
   });
@@ -355,7 +355,7 @@ export function resetAll(
       pruneBindings(core, rec);
       for (const binding of rec.bindings?.values() ?? []) binding.sync();
     }
-    validate(core, { trigger: "init", prefixes: undefined });
+    validate(core, { trigger: "init" });
   });
 }
 
@@ -398,7 +398,7 @@ export function unregisterPath(
       });
       changedValues(core, true);
     }
-    validate(core, { trigger: "init", prefixes: undefined });
+    validate(core, { trigger: "init" });
   });
 }
 
@@ -443,6 +443,6 @@ export function resetPath(core: Core, segments: readonly Segment[]): void {
       if (!isUnder(k, key)) continue;
       for (const binding of core.recs.get(k)?.bindings?.values() ?? []) binding.sync();
     }
-    validate(core, { trigger: "init", prefixes: undefined });
+    validate(core, { trigger: "init" });
   });
 }

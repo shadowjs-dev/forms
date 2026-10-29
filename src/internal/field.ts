@@ -23,7 +23,7 @@ import { Cell } from "./cell";
 import { type AnyControlOptions, type Codec, codecFor, kindOfElement } from "./controls";
 import { toIssues } from "./issues";
 import { peekAt, pushIssues, resetPath, setDisabledFlag, setTouched, writeValue } from "./mutate";
-import { isRecord, readOnly } from "./shape";
+import { readOnly } from "./shape";
 import {
   type Binding,
   type Core,
@@ -48,11 +48,6 @@ export const MAX_PROP_BAGS = 64;
 
 /** A bound control: its codec and the binding that keeps it in step with the field. */
 type Attached = { codec: Codec; binding: Binding };
-
-/** A `setValue` argument that computes the next value from the previous one. */
-function isUpdater(value: unknown): value is (previous: unknown) => unknown {
-  return typeof value === "function";
-}
 
 /** The element an event is about. */
 /** A fixed prop, enumerable like the literal it stands in for. */
@@ -114,14 +109,7 @@ function optionsOfElement(element: Element, kind: ControlKind): AnyControlOption
   if (kind === "file" && element instanceof HTMLInputElement) {
     return { kind, multiple: element.multiple };
   }
-  if (kind === "number") return { kind };
-  if (kind === "checkbox") return { kind };
-  return { kind: "text" };
-}
-
-/** The options as a record, to read the keys the kinds share by name (a missing key is `undefined`). */
-function keyed(options: AnyControlOptions): Record<string, unknown> {
-  return isRecord(options) ? options : {};
+  return kind === "number" || kind === "checkbox" ? { kind } : { kind: "text" };
 }
 
 /**
@@ -145,7 +133,7 @@ export interface FieldHost {
 }
 
 function bagKey(kind: ControlKind, options: AnyControlOptions): string {
-  const o = keyed(options);
+  const o = options as Record<string, unknown>;
   return [kind, o["value"], o["multiple"], o["empty"], o["trim"], o["invalid"], o["type"], o["as"]]
     .map((part) => (part === undefined ? "" : String(part)))
     .join("\u0001");
@@ -406,7 +394,7 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
 
   const buildBag = (kind: ControlKind, options: AnyControlOptions): object => {
     const codec = codecFor(options, core.opts.emptyValue, core.dates);
-    const o = keyed(options);
+    const o = options as Record<string, unknown>;
     const text = (): string => codec.display(field.value()) ?? "";
     // While text is being composed the control keeps its own text: a write from elsewhere lands
     // when the composition ends (the epoch cell makes this getter run again then).
@@ -552,7 +540,10 @@ export function createField(host: FieldHost, loc: Loc): FieldImpl {
       if (goneNow()) return;
       batch(() => {
         // The updater is the caller's code: it must not subscribe the effect that calls `setValue`.
-        const next = isUpdater(value) ? untrack(() => value(plainClone(peekValue()))) : value;
+        const next =
+          typeof value === "function"
+            ? untrack(() => (value as (previous: unknown) => unknown)(plainClone(peekValue())))
+            : value;
         writeValue(core, segmentsNow(), next, {
           validate: options?.validate,
           touch: options?.touch,

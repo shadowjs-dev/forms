@@ -32,6 +32,7 @@ import {
   writeMany,
   writesOf,
 } from "./internal/mutate";
+import { isPromiseLike } from "./internal/promise";
 import { readOnly } from "./internal/shape";
 import {
   type Core,
@@ -109,28 +110,15 @@ const REVALIDATE: Record<ReValidateMode, ReValidateOn> = {
   onSubmit: "submit",
 };
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return (
-    (typeof value === "object" || typeof value === "function") &&
-    value !== null &&
-    "then" in value &&
-    typeof value.then === "function"
-  );
-}
-
 /** The defaults given as plain values (not a function and not a promise); `undefined` otherwise. */
 function syncDefaults<T>(
   given: DefaultValues<T> | AsyncDefaultValues<T> | undefined,
 ): DefaultValues<T> | undefined {
-  return typeof given === "function" || isThenable(given) ? undefined : given;
+  return typeof given === "function" || isPromiseLike(given) ? undefined : given;
 }
 
-/** A list given as one item or several (a type guard: `Array.isArray` would narrow to `any[]`). */
-function isList<T>(value: T | readonly T[]): value is readonly T[] {
-  return Array.isArray(value);
-}
-
-const asList = <T>(value: T | readonly T[]): readonly T[] => (isList(value) ? value : [value]);
+const asList = <T>(value: T | readonly T[]): readonly T[] =>
+  Array.isArray(value) ? (value as readonly T[]) : [value as T];
 
 /**
  * An object whose members are getters: each read of a member calls its reader, so a read inside an
@@ -145,17 +133,12 @@ function lazyView<T extends object>(readers: { [K in keyof T]: () => T[K] }): T 
   return view;
 }
 
-/** A validator given as a plain function: the form's `validators` accept any value type. */
-function isValidatorFunction(value: unknown): value is FieldValidator<unknown, object> {
-  return typeof value === "function";
-}
-
 /**
  * The engine's spec of a `validators` entry that is an object. The map's type promises the
  * `validate` function. A value that breaks that promise fails when the form runs it, as before.
  */
 function specOf(value: unknown): ValidatorSpec<unknown, object> {
-  if (isValidatorFunction(value)) return { validate: value };
+  if (typeof value === "function") return { validate: value as FieldValidator<unknown, object> };
   // Justified cast: the map's type checks the entry's shape where it is written, not here.
   const spec = value as { validate: FieldValidator<unknown, object>; debounceMs?: number };
   return { validate: spec.validate, debounceMs: spec.debounceMs };
@@ -279,7 +262,7 @@ export function useForm<
   const loader: (() => Promise<DefaultValues<TInput>>) | undefined =
     typeof given === "function"
       ? () => new Promise<DefaultValues<TInput>>((resolve) => resolve(given()))
-      : isThenable(given)
+      : isPromiseLike(given)
         ? () => new Promise<DefaultValues<TInput>>((resolve) => resolve(given))
         : undefined;
   // A `values` accessor provides the starting values when it has some; otherwise the defaults do.
@@ -321,16 +304,13 @@ export function useForm<
     successful: new Cell(false),
     submitError: new Cell<SubmitErrorState | undefined>(undefined),
     composing: 0,
-    deferred: undefined,
     handleValidators: new Set(),
     resetOff: new Set(),
-    schemaRun: { token: 0, controller: undefined, timer: undefined, window: undefined },
-    output: undefined,
+    schemaRun: { token: 0 },
     excluded: [],
     excludedCount: new Cell(0),
     unknown: new Cell(false),
     submitToken: 0,
-    submitController: undefined,
     disposed: false,
     schemaAsync: false,
     schemaPending: new Cell(false),
@@ -338,10 +318,6 @@ export function useForm<
     loadError: new Cell<unknown>(undefined),
     formDisabled:
       typeof disabledOption === "function" ? disabledOption : () => disabledOption === true,
-    arrays: undefined,
-    dates: undefined,
-    async: undefined,
-    submitErrors: undefined,
   };
 
   const fields = new Map<string, FieldImpl>();
@@ -671,7 +647,7 @@ export function useForm<
       missingFeature(__DEV__ ? "initialErrors" : "FORMS_NEED_4", "submitErrors", "submit-errors"),
     );
   }
-  validate(core, { trigger: "init", prefixes: undefined });
+  validate(core, { trigger: "init" });
   return form;
 }
 
@@ -730,6 +706,6 @@ function dirtyPaths(core: Core): string[] {
 
 /** The stable key of an index path, and the default value that belongs to it (read untracked). */
 function baselineOf(core: Core, segments: readonly Segment[]): { key: string; baseline: unknown } {
-  const walked = walk(core, segments, { key: "", node: core.raw(), parts: [], rows: [], from: 0 });
+  const walked = walk(core, segments);
   return { key: walked.key, baseline: defaultAtParts(core, walked.parts) };
 }

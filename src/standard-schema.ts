@@ -6,6 +6,7 @@
  */
 import { pathSegments } from "./internal/issues";
 import { isPromiseLike } from "./internal/promise";
+import { isRecord } from "./internal/shape";
 import type { Resolver, ResolverResult } from "./types";
 
 export type { Resolver, ResolverContext, ResolverIssue, ResolverResult } from "./types";
@@ -178,8 +179,7 @@ export function isStandardSchema(value: unknown): value is StandardSchemaV1 {
   if (value === null) return false;
   const props: unknown = Reflect.get(value, "~standard");
   return (
-    typeof props === "object" &&
-    props !== null &&
+    isRecord(props) &&
     Reflect.get(props, "version") === 1 &&
     typeof Reflect.get(props, "validate") === "function"
   );

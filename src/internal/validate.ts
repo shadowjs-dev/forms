@@ -16,7 +16,6 @@ import { batch, snapshot, untrack } from "@shadow-js/core";
 import { formatPath, getIn, matchesPattern, type Segment, startsWith } from "../path";
 import type {
   FieldIssue,
-  FormIssueInput,
   FormValidateResult,
   ResolverResult,
   ValidationTrigger,
@@ -50,7 +49,7 @@ import {
 export interface Request {
   readonly trigger: ValidationTrigger | "init";
   /** Paths whose problems may become visible. `undefined`: every path. */
-  readonly prefixes: readonly (readonly Segment[])[] | undefined;
+  readonly prefixes?: readonly (readonly Segment[])[] | undefined;
 }
 
 /**
@@ -71,7 +70,7 @@ export interface RawIssue {
  */
 export interface GlobalOutcome {
   readonly issues: RawIssue[];
-  readonly output: { readonly value: unknown } | undefined;
+  readonly output?: { readonly value: unknown } | undefined;
 }
 
 /**
@@ -122,18 +121,13 @@ export function effectiveValues(core: Core): object {
 // The global pass: resolver and form validator
 // ---------------------------------------------------------------------------------------------
 
-/** A list of issues from a form validator (a type guard: `Array.isArray` would narrow to `any[]`). */
-function isFormIssueList(result: FormValidateResult): result is readonly FormIssueInput[] {
-  return Array.isArray(result);
-}
-
 function asFormIssues(result: FormValidateResult): RawIssue[] {
   if (result === undefined || result === null || result === "") return [];
   if (typeof result === "string") {
     return [{ segments: [], message: result, type: "validate", resolver: false }];
   }
   const out: RawIssue[] = [];
-  if (isFormIssueList(result)) {
+  if (Array.isArray(result)) {
     for (const item of result) {
       let segments: Segment[] = [];
       if (typeof item.path === "string") {
@@ -167,7 +161,6 @@ function outcomeOfError(error: unknown): GlobalOutcome {
   const issue = failureIssue(error);
   return {
     issues: [{ segments: [], message: issue.message, type: issue.type, resolver: false }],
-    output: undefined,
   };
 }
 
@@ -182,7 +175,6 @@ function outcomeOfResult(done: ResolverResult<unknown>): GlobalOutcome {
         type: issue.type ?? "schema",
         resolver: true,
       })),
-      output: undefined,
     };
   }
   return { issues: [], output: { value: done.value } };
@@ -208,14 +200,14 @@ function checkOf<A>(
 
 function resolverOutcome(core: Core, values: object, signal: AbortSignal, req: Request): Pending {
   const resolver = core.opts.resolver;
-  if (resolver === undefined) return { issues: [], output: undefined };
+  if (resolver === undefined) return { issues: [] };
   const trigger = req.trigger === "init" ? "manual" : req.trigger;
   return checkOf(() => resolver.validate(values, { signal, trigger }), outcomeOfResult);
 }
 
 function validatorOutcome(core: Core, values: object, signal: AbortSignal, req: Request): Pending {
   const validate = core.opts.validate;
-  if (validate === undefined) return { issues: [], output: undefined };
+  if (validate === undefined) return { issues: [] };
   const trigger = req.trigger === "init" ? "manual" : req.trigger;
   return checkOf(
     () => validate(values, { signal, trigger }),
@@ -232,7 +224,6 @@ function syncOutcome(pending: Pending): GlobalOutcome {
   Promise.resolve(pending).catch(() => undefined);
   return {
     issues: [{ segments: [], message: NEEDS_ASYNC, type: "validate", resolver: false }],
-    output: undefined,
   };
 }
 
@@ -276,13 +267,7 @@ function mapIssues(
       key = "";
       parts = [];
     } else {
-      const walked = walk(core, issue.segments, {
-        key: "",
-        node: core.raw(),
-        parts: [],
-        rows: [],
-        from: 0,
-      });
+      const walked = walk(core, issue.segments);
       key = walked.key;
       parts = walked.parts;
     }

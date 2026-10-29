@@ -129,7 +129,9 @@ export function isReservedKey(key: string): boolean {
 }
 
 /** Checks one key against the grammar and returns it. */
-function checkKey(key: string, where: string): string {
+function checkKey(key: string, path?: string): string {
+  // Development text names the path; a production build keeps the code only.
+  const where = path === undefined ? "the path" : `"${path}"`;
   if (key.length === 0) throw new FormPathError(__DEV__ ? `empty key in ${where}` : "FORMS_KEY_3");
   if (RESERVED.has(key))
     throw new FormPathError(__DEV__ ? `"${key}" is a reserved key` : "FORMS_KEY_4");
@@ -210,7 +212,7 @@ export function parsePath(path: string, allowAny = false): readonly PatternSegme
     const text = path.slice(i, end);
     if (allowAny && text === "*") out.push(ANY);
     else if (isIndex(text)) out.push(Number(text));
-    else out.push(checkKey(text, `"${path}"`));
+    else out.push(checkKey(text, path));
     i = end;
     after = "segment";
   }
@@ -247,7 +249,7 @@ export function formatPath(segments: readonly Segment[]): string {
       }
       part = String(segment);
     } else {
-      checkKey(segment, "the path");
+      checkKey(segment);
       if (/[.[\]]/.test(segment)) {
         throw new FormPathError(
           __DEV__ ? `"${segment}" cannot be a key (no . [ or ])` : "FORMS_KEY_1",
@@ -326,7 +328,7 @@ function checkWritable(root: object, segments: readonly Segment[]): void {
   if (segments.length === 0)
     throw new FormPathError(__DEV__ ? "cannot write the root" : "FORMS_PATH_5");
   for (const segment of segments) {
-    if (typeof segment === "string") checkKey(segment, "the path");
+    if (typeof segment === "string") checkKey(segment);
     // A negative, fractional or NaN index would become a junk key on the array.
     else if (!Number.isSafeInteger(segment) || segment < 0) {
       throw new FormPathError(__DEV__ ? `${segment} is not an array index` : "FORMS_PATH_3");

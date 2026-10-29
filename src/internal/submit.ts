@@ -156,13 +156,13 @@ export async function runSubmit<TInput extends object, TOutput>(
     // the decision is about the values that are submitted. Bounded, so a check that keeps writing
     // values cannot hold the submit forever; after the last round the submit decides on what is there.
     let version = core.version.peek();
-    let pending = validate(core, { trigger: "submit", prefixes: undefined });
+    let pending = validate(core, { trigger: "submit" });
     for (let round = 1; pending !== undefined; round += 1) {
       await pending;
       if (token !== core.submitToken) return { ok: false, reason: "canceled" };
       if (core.version.peek() === version || round >= MAX_CHECK_ROUNDS) break;
       version = core.version.peek();
-      pending = validate(core, { trigger: "submit", prefixes: undefined });
+      pending = validate(core, { trigger: "submit" });
     }
     if (token !== core.submitToken) return { ok: false, reason: "canceled" };
     const needsOutput = core.opts.resolver !== undefined && core.output === undefined;

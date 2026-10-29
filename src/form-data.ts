@@ -60,6 +60,26 @@ function entriesOf(data: FormData | URLSearchParams | FormEntries): FormEntries 
   return data instanceof FormData || data instanceof URLSearchParams ? data.entries() : data;
 }
 
+/**
+ * The default that shapes a posted path. A row past the end of a defaults array has no default of its own, so it takes
+ * the first row's (only when there is one): rows the user added coerce like the rows the form began with.
+ */
+function shapeAt(defaults: unknown, segments: readonly Segment[]): unknown {
+  let node = defaults;
+  for (const segment of segments) {
+    if (!isContainer(node)) return undefined;
+    node = getIn(node, [
+      Array.isArray(node) &&
+      typeof segment === "number" &&
+      segment >= node.length &&
+      node.length > 0
+        ? 0
+        : segment,
+    ]);
+  }
+  return node;
+}
+
 function kindOfDefault(shape: unknown): "number" | "boolean" | "date" | "string" | "unknown" {
   if (typeof shape === "number") return "number";
   if (typeof shape === "boolean") return "boolean";
@@ -165,11 +185,15 @@ export function formDataToValues(
   const result: Record<string, unknown> = {};
   const defaults = options.defaults;
   for (const [name, group] of groups) {
-    const shape = defaults === undefined ? undefined : getIn(defaults, group.segments);
+    const shape = shapeAt(defaults, group.segments);
     let value: unknown;
     if (Array.isArray(shape) || group.values.length > 1) {
       const item = Array.isArray(shape) ? shape[0] : undefined;
-      value = group.values.map((entry) => coerce(entry, item, emptyValue));
+      value = group.values
+        .map((entry) => ({ entry, coerced: coerce(entry, item, emptyValue) }))
+        // An empty file input posts one empty file: a list holds the files that were chosen, so it stays empty.
+        .filter(({ entry, coerced }) => typeof entry === "string" || coerced !== undefined)
+        .map(({ coerced }) => coerced);
     } else {
       value = coerce(group.values[0], shape, emptyValue);
     }

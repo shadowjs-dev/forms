@@ -54,8 +54,10 @@ export function plainClone(value: unknown): unknown {
       if (isReservedKey(key))
         throw new FormPathError(__DEV__ ? `"${key}" is a reserved key in data` : "FORMS_KEY_4");
       const child = ownValue(source, key);
+      // The copy is an array or a plain object, written to by key.
+      const into = target as Record<string, unknown>;
       if (!isContainer(child)) {
-        if (isRecord(target)) target[key] = child;
+        into[key] = child;
         continue;
       }
       let copy = copies.get(child);
@@ -64,7 +66,7 @@ export function plainClone(value: unknown): unknown {
         copies.set(child, copy);
         pending.push([child, copy]);
       }
-      if (isRecord(target)) target[key] = copy;
+      into[key] = copy;
     }
   }
   return root;

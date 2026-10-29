@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3
+
+### Fixed
+
+- `formDataToValues` and `parseFormData` coerce a row past the end of a defaults array like the first default row (numbers, checkboxes, lists posted once).
+- A `multiple` file input with no file now gives an empty list instead of `[undefined]`.
+- Smaller bundles with the same behavior. Production builds of table, query and virtual throw short codes (`TABLE_DUPLICATE`, `QUERY_LIMIT`, `VIRTUAL_KERNEL`) instead of the development messages; each package's README lists them.
+
 ## 1.0.2
 
 ### Fixed

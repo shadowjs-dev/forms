@@ -147,7 +147,7 @@ export interface Run {
 export interface Rec {
   readonly key: string;
   readonly parts: readonly Part[];
-  slots: RecSlots | undefined;
+  slots?: RecSlots | undefined;
   /** Problems by source. */
   schema: readonly FieldIssue[];
   field: readonly FieldIssue[];
@@ -155,13 +155,13 @@ export interface Rec {
   manual: readonly FieldIssue[];
   /** All sources merged: the truth about the field, shown or not. */
   truth: readonly FieldIssue[];
-  bindings: Map<Element, Binding> | undefined;
+  bindings?: Map<Element, Binding> | undefined;
   /** A validation trigger (submit, trigger()) showed this record: later changes update it live. */
   revealed: boolean;
   /** This record has shown a problem at some point, so rules about other fields may update it. */
   seen: boolean;
-  run: Run | undefined;
-  timer: ReturnType<typeof setTimeout> | undefined;
+  run?: Run | undefined;
+  timer?: ReturnType<typeof setTimeout> | undefined;
 }
 
 /**
@@ -281,7 +281,7 @@ export interface Core {
 
   /** Number of controls composing text (IME). Validation waits. */
   composing: number;
-  deferred: ValidationDeferral | undefined;
+  deferred?: ValidationDeferral | undefined;
 
   /** Validators attached by field handles. */
   readonly handleValidators: Set<HandleValidator>;
@@ -290,7 +290,7 @@ export interface Core {
   /** The latest schema pass. */
   schemaRun: SchemaRun;
   /** Parsed output of the last clean validation. */
-  output: { readonly value: unknown } | undefined;
+  output?: { readonly value: unknown } | undefined;
   /**
    * Paths the schema reported that lie under a disabled field (excluded from the data): the
    * schema requires something the form no longer sends, so no output can be produced.
@@ -302,7 +302,7 @@ export interface Core {
   readonly unknown: Cell<boolean>;
 
   submitToken: number;
-  submitController: AbortController | undefined;
+  submitController?: AbortController | undefined;
   disposed: boolean;
   /** Whether the schema answered asynchronously the last time. */
   schemaAsync: boolean;
@@ -316,13 +316,13 @@ export interface Core {
   readonly formDisabled: () => boolean;
 
   /** Row lists and their rows: installed by the `arrays` feature, absent otherwise. */
-  arrays: ArrayPlug | undefined;
+  arrays?: ArrayPlug | undefined;
   /** The date family codecs: installed by the `dates` feature, absent otherwise. */
-  dates: DatesPlug | undefined;
+  dates?: DatesPlug | undefined;
   /** Promises, debounce and cancellation: installed by the `asyncValidation` feature. */
-  async: AsyncPlug | undefined;
+  async?: AsyncPlug | undefined;
   /** Maps a thrown `FormSubmitError` onto fields: installed by the `submitErrors` feature. */
-  submitErrors: ((error: unknown) => void) | undefined;
+  submitErrors?: ((error: unknown) => void) | undefined;
 }
 
 /**
@@ -350,10 +350,10 @@ export interface ValidationDeferral {
  */
 export interface SchemaRun {
   token: number;
-  controller: AbortController | undefined;
-  timer: ReturnType<typeof setTimeout> | undefined;
+  controller?: AbortController | undefined;
+  timer?: ReturnType<typeof setTimeout> | undefined;
   /** The paths of the changes waiting in the debounce window (`undefined` inside: every path), set while `timer` is. */
-  window: { readonly prefixes: readonly (readonly Segment[])[] | undefined } | undefined;
+  window?: { readonly prefixes: readonly (readonly Segment[])[] | undefined } | undefined;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -407,17 +407,13 @@ export function recOf(core: Core, key: string, parts: () => readonly Part[]): Re
   const rec: Rec = {
     key,
     parts: made,
-    slots: undefined,
     schema: NO_ISSUES,
     field: NO_ISSUES,
     server: NO_ISSUES,
     manual: NO_ISSUES,
     truth: NO_ISSUES,
-    bindings: undefined,
     revealed: false,
     seen: false,
-    run: undefined,
-    timer: undefined,
   };
   core.recs.set(key, rec);
   for (const id of rowIdsOf(made)) registerUnder(core.rowRecs, id, key);
@@ -467,14 +463,18 @@ function isIndexText(text: string): boolean {
 export function walk(
   core: Core,
   segments: readonly Segment[],
-  start: { key: string; node: unknown; parts: Part[]; rows: string[]; from: number },
+  start: { key: string; node: unknown; parts: Part[]; rows: string[] } = {
+    key: "",
+    node: core.raw(),
+    parts: [],
+    rows: [],
+  },
 ): Walked {
   let key = start.key;
   let node = start.node;
   const parts = start.parts.slice();
   const rows = start.rows.slice();
-  for (const [position, segment] of segments.entries()) {
-    if (position < start.from) continue;
+  for (const segment of segments) {
     const text = String(segment);
     if (core.arrays !== undefined && Array.isArray(node) && isIndexText(text)) {
       const list = core.arrays.list(key, node.length, rows);
@@ -512,7 +512,7 @@ export function recOfLoc(core: Core, loc: Loc): Rec {
  * @internal
  */
 export function keyOfSegments(core: Core, segments: readonly Segment[]): string {
-  return walk(core, segments, { key: "", node: core.raw(), parts: [], rows: [], from: 0 }).key;
+  return walk(core, segments).key;
 }
 
 /**
@@ -521,7 +521,7 @@ export function keyOfSegments(core: Core, segments: readonly Segment[]): string 
  */
 export function recOfSegments(core: Core, segments: readonly Segment[]): Rec {
   if (segments.length === 0) return rootRec(core);
-  const walked = walk(core, segments, { key: "", node: core.raw(), parts: [], rows: [], from: 0 });
+  const walked = walk(core, segments);
   return recOf(core, walked.key, () => walked.parts);
 }
 
