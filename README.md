@@ -10,7 +10,7 @@
 
 Forms for ShadowJS 1.0.0: fine-grained values, [Standard Schema](https://standardschema.dev)
 validation (Zod, Valibot, ArkType, Effect Schema, anything with `~standard.validate`; the examples
-and tests use Zod and a hand-written schema), arrays with stable rows, async validation that cancels and cannot race, server errors, a multi-step helper and
+use Zod, the tests also run Valibot, ArkType and a hand-written schema), arrays with stable rows, async validation that cancels and cannot race, server errors, a multi-step helper and
 headless components. It replaces `react-hook-form` plus a resolver, and it is built on public
 `@shadow-js/core` and `@shadow-js/web` APIs only.
 
@@ -521,9 +521,8 @@ with the row, not the index.
   it exact. A schema or `validate` rule that answers asynchronously makes `isValid()` `false` until
   its first answer.
 - Drafts (persisting values in storage) are not part of this package.
-- Valibot and ArkType implement Standard Schema and are expected to work; the repository's tests run
-  Zod and a hand-written schema, and Valibot / ArkType suites that skip themselves when those
-  packages are not installed (see the devDependencies note in `package.json`).
+- Effect Schema implements Standard Schema and is expected to work; the repository's tests run Zod, Valibot, ArkType and
+  a hand-written schema.
 
 ## Learn more
 
@@ -568,7 +567,7 @@ A production build keeps a short code instead of the development explanation, so
 ## Dependencies
 
 - Runtime: none.
-- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.0.0`: reactive state and the renderer the field components use.
+- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.0.3`: reactive state and the renderer the field components use.
 
 ## Types
 
