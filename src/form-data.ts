@@ -93,6 +93,29 @@ function kindOfDefault(shape: unknown): "number" | "boolean" | "date" | "string"
  * group, so a long run of digits can only be split one way and a failed match is linear, not quadratic.
  */
 const DECIMAL = /^\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?\s*$/i;
+/** The year, month and day of ISO text (`2024`, `2024-02`, `2024-02-29`, with or without a time after them). */
+const ISO_DAY = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?(?:[T ]\d{2}:\d{2}.*)?$/;
+
+/**
+ * The `Date` of posted text, or `undefined` when the text is not a date. `new Date(text)` alone reads any text with a
+ * number in it as a day of 2001 (`"abc 1"` is January 1) and rolls February 30 into March, so ISO text must be a
+ * day the calendar has, and any other text must at least name a four-digit year.
+ */
+function dateOf(text: string): Date | undefined {
+  const trimmed = text.trim();
+  const iso = ISO_DAY.exec(trimmed);
+  if (iso !== null) {
+    const year = Number(iso[1]);
+    const month = iso[2] === undefined ? 1 : Number(iso[2]);
+    const day = iso[3] === undefined ? 1 : Number(iso[3]);
+    if (month < 1 || month > 12 || day < 1 || day > new Date(Date.UTC(year, month, 0)).getUTCDate())
+      return undefined;
+  } else if (!/\d{4}/.test(trimmed)) {
+    return undefined;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
 
 function coerce(
   value: FormDataEntryValue | string,
@@ -111,10 +134,8 @@ function coerce(
     }
     case "boolean":
       return !["", "false", "off", "0"].includes(value.toLowerCase());
-    case "date": {
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-    }
+    case "date":
+      return dateOf(value);
     default:
       return value === "" ? emptyOf(emptyValue) : value;
   }

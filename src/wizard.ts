@@ -275,6 +275,9 @@ export function useWizard<TInput extends object, TOutput = TInput>(
     async next() {
       const at = index();
       if (!(await check(stepAt(at)))) return false;
+      // The user may have left the checked step while it was checked (Back, a click on another step): moving on from
+      // the step that was asked would take them to a step they did not choose.
+      if (index() !== at) return false;
       if (at < last) move(at + 1);
       return true;
     },
@@ -290,9 +293,11 @@ export function useWizard<TInput extends object, TOutput = TInput>(
       }
       for (let step = from; step < wanted; step += 1) {
         if (!(await check(stepAt(step)))) {
-          move(step);
+          // Only when the wizard is still where the call started: a move made meanwhile is the user's.
+          if (index() === from) move(step);
           return false;
         }
+        if (index() !== from) return false;
       }
       move(wanted);
       return true;

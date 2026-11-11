@@ -118,6 +118,29 @@ export type FormProps<TInput extends object, TOutput = TInput> = Omit<
   readonly children?: JsxChild;
 };
 
+/** Listener objects that already ran once, for `once: true`. */
+const ranOnce = new WeakSet<object>();
+
+/**
+ * Runs the caller's own handler of the form, whichever form of an event handler it is: a function, a
+ * `[handler, data]` tuple (called `handler(data, event)`), or a listener object (`handleEvent`, called as
+ * its method; `once` is honored). The element's `onSubmit` is the form's own, so the caller's handler is
+ * called here, and has to accept everything the attribute type accepts.
+ */
+function callOwnHandler(handler: unknown, event: Event): void {
+  if (typeof handler === "function") {
+    handler(event);
+  } else if (Array.isArray(handler)) {
+    const [bound, data] = handler as [unknown, unknown];
+    if (typeof bound === "function") bound(data, event);
+  } else if (typeof handler === "object" && handler !== null) {
+    const listener = handler as { handleEvent?: unknown; once?: unknown };
+    if (typeof listener.handleEvent !== "function" || ranOnce.has(handler)) return;
+    if (listener.once === true) ranOnce.add(handler);
+    listener.handleEvent(event);
+  }
+}
+
 /**
  * A `<form>` wired to `form`: it submits through `form.handleSubmit`, turns off the browser's own
  * validation, and provides the form to `<Field>` / `<FieldArray>` / `useFormContext` below it.
@@ -154,9 +177,10 @@ export function Form<TInput extends object, TOutput = TInput>(
 ): JsxChild {
   const [local, rest] = splitProps(props, ["form", "onSubmit"]);
   const submit = (event: Event): void => {
-    // The JSX handler type is wider than the DOM event this form passes it.
-    const own = untrack(() => local.onSubmit) as ((event: Event) => void) | undefined;
-    own?.(event);
+    callOwnHandler(
+      untrack(() => local.onSubmit),
+      event,
+    );
     if (!event.defaultPrevented) void local.form.handleSubmit(event);
     else event.preventDefault();
   };

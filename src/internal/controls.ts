@@ -137,7 +137,9 @@ function numberCodec(options: NumberOptions): Codec {
     // shows no text; otherwise the text must match what is stored.
     const text = numberText(value);
     if (text === "") return numberText(read(element)) === "";
-    return Object.is(read(element), Number(text));
+    // `===`, not `Object.is`: the text of `-0` is "0", so `Object.is` would call the control "-0" different from the
+    // stored `-0` and rewrite it to "0" while the user types a negative fraction ("-0.5"), dropping the sign.
+    return read(element) === Number(text);
   });
 }
 

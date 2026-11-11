@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.5
+
+### Fixed
+
+- Typing `-0` into a number control keeps the sign, so a negative fraction such as `-0.5` can be typed.
+- `<Form onSubmit>` accepts a `[handler, data]` tuple or a listener object instead of throwing.
+- `useWizard().next()` and `goTo()` no longer move a user who left the checked step while it was validated.
+
+### Changed
+
+- `formDataToValues` and `parseFormData` read posted text as a date only when it is a real ISO day or names a four-digit year; `"abc 1"`, `"12"` and February 30 are `undefined`.
+
 ## 1.0.4
 
 ### Changed

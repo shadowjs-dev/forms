@@ -526,11 +526,11 @@ with the row, not the index.
 
 ## Learn more
 
-- `test/` is the specification: every behavior above has a test with an invariant id (`[FRM-nn]`).
+- `test/` is the specification; tests carry invariant ids (`[FRM-nn]`).
 
 ## Production error codes
 
-A production build keeps a short code instead of the development explanation, so message text never reaches user bundles. Search this table for the code. In the explanation, `…` stands for a value the development message names. A code followed by a word names the option, feature or member at fault.
+For the errors in the table below, a production build keeps a short code instead of the development explanation; other errors keep their message in every build. Search this table for the code. In the explanation, `…` stands for a value the development message names. A code followed by a word names the option, feature or member at fault.
 
 | Code | Development explanation |
 | --- | --- |
@@ -567,7 +567,7 @@ A production build keeps a short code instead of the development explanation, so
 ## Dependencies
 
 - Runtime: none.
-- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.0.3`: reactive state and the renderer the field components use.
+- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.0.5`: reactive state and the renderer the field components use.
 
 ## Types
 
