@@ -567,7 +567,7 @@ For the errors in the table below, a production build keeps a short code instead
 ## Dependencies
 
 - Runtime: none.
-- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.0.6`: reactive state and the renderer the field components use.
+- Peers: `@shadow-js/core` and `@shadow-js/web` `^1.1.0`: reactive state and the renderer the field components use.
 
 ## Types
 
